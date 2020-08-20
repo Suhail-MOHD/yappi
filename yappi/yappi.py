@@ -1212,6 +1212,8 @@ def set_tag_callback(cbk):
     """
     return _yappi.set_tag_callback(cbk)
 
+import itertools
+counter = itertools.count().next
 
 def set_ctx_backend(type):
     """
@@ -1226,6 +1228,19 @@ def set_ctx_backend(type):
     if type not in BACKEND_TYPES:
         raise YappiError("Invalid backend type: %s" % (type))
 
+    if False and type == "GREENLET":
+        from greenlet import getcurrent
+        def _get_greenlet_id():
+            curr_greenlet = getcurrent()
+            try:
+                id_ = curr_greenlet._yappi_tid
+                return id_
+            except AttributeError:
+                id_ = counter()
+                curr_greenlet._yappi_tid = id_
+                return id_
+
+        _yappi.set_context_id_callback(_get_greenlet_id)
     _yappi.set_context_backend(BACKEND_TYPES[type])
 
 

@@ -84,6 +84,11 @@ typedef struct {
 } _pit; // profile_item
 
 typedef struct {
+    int paused;
+    long long paused_at;
+} _greenlet_state;
+
+typedef struct {
     _cstack *cs;
     _htab *rec_levels;
 
@@ -106,8 +111,8 @@ typedef struct {
 
     PyThreadState *ts_ptr;
 
-    int paused;
-    long long paused_at;
+    // Stores information for greenlet associated with this context
+    _greenlet_state gl_state;
 } _ctx; // context
 
 typedef struct {
@@ -1196,9 +1201,9 @@ finally:
     // there shall be no context switch happenning inside 
     // profile events and no concurent running events is possible
     if (current_ctx->ts_ptr != PyThreadState_GET()) {
-        // printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
-        //                     PyStr_AS_CSTRING(frame->f_code->co_name), 
-        //                     current_ctx->ts_ptr, PyThreadState_GET());
+        printf("call EVENT %d %s %s %p %p %ld\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
+                            PyStr_AS_CSTRING(frame->f_code->co_name), 
+                            current_ctx->ts_ptr, PyThreadState_GET(), current_ctx->id);
 
         //abort();
         _log_err(15);
@@ -1211,8 +1216,8 @@ static void
 _pause_greenlet_ctx(_ctx *ctx)
 {
     ydprintf("pausing context: %ld %s\n", ctx->id, ctx->name);
-    ctx->paused = 1;
-    ctx->paused_at = tickcount();
+    ctx->gl_state.paused = 1;
+    ctx->gl_state.paused_at = tickcount();
 }
 
 static void
@@ -1221,16 +1226,16 @@ _resume_greenlet_ctx(_ctx *ctx)
     long long shift;
     int i;
 
-    if (!ctx->paused) {
+    if (!ctx->gl_state.paused) {
         return;
     }
 
-    ctx->paused = 0;
+    ctx->gl_state.paused = 0;
     if (ctx->cs->head < 0) {
         return;
     }
 
-    shift = tickcount() - ctx->paused_at;
+    shift = tickcount() - ctx->gl_state.paused_at;
 
     for (i = 0; i <= ctx->cs->head; i++) {
         ctx->cs->_items[i].t0 += shift;
@@ -1279,8 +1284,8 @@ _profile_thread(PyThreadState *ts)
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
-    ctx->paused = 0;
-    ctx->paused_at = 0;
+    ctx->gl_state.paused = 0;
+    ctx->gl_state.paused_at = 0;
 
     // printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
     //        ctx->ts_ptr, ctx->id, ts);
