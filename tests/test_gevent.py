@@ -61,6 +61,7 @@ class SingleThreadTests(YappiUnitTestCase):
         time.sleep                            4      0.400641  0.400641  0.100160
         '''
         stats = yappi.get_func_stats()
+        stats.print_all()
         self.assert_traces_almost_equal(r1, stats)
 
         yappi.clear_stats()
@@ -72,6 +73,7 @@ class SingleThreadTests(YappiUnitTestCase):
         g2.get()
         yappi.stop()
         stats = yappi.get_func_stats()
+        stats.print_all()
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000117  0.601170  0.300585
         ../yappi/tests/utils.py:126 burn_cpu  2      0.000000  0.600047  0.300024
